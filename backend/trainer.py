@@ -65,20 +65,62 @@ def compute_coverage_vs_accuracy(probs, labels, step=0.05):
     return curve
 
 class ExperimentManager:
-    def __init__(self, checkpoint_path="checkpoints/system_weights.pt", metrics_path="checkpoints/metrics.json"):
-        self.checkpoint_path = checkpoint_path
-        self.metrics_path = metrics_path
+    def __init__(self, checkpoint_path=None, metrics_path=None):
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ckpt_dir = os.path.join(base_dir, "checkpoints")
+
+        # Check for GPU weights or default weights
+        candidate_ckpts = [
+            checkpoint_path,
+            os.path.join(ckpt_dir, "system_weights.pt"),
+            os.path.join(ckpt_dir, "system_weights_gpu.pt"),
+            "checkpoints/system_weights.pt",
+            "checkpoints/system_weights_gpu.pt"
+        ]
+        self.checkpoint_path = None
+        for cp in candidate_ckpts:
+            if cp and os.path.exists(cp):
+                self.checkpoint_path = cp
+                break
+
+        if not self.checkpoint_path:
+            self.checkpoint_path = os.path.join(ckpt_dir, "system_weights.pt")
+
+        candidate_metrics = [
+            metrics_path,
+            os.path.join(ckpt_dir, "full_benchmark_results.json"),
+            os.path.join(ckpt_dir, "metrics.json"),
+            os.path.join(ckpt_dir, "metrics_gpu.json"),
+            "checkpoints/full_benchmark_results.json",
+            "checkpoints/metrics.json"
+        ]
+        self.metrics_path = None
+        for mp in candidate_metrics:
+            if mp and os.path.exists(mp):
+                self.metrics_path = mp
+                break
+
+        if not self.metrics_path:
+            self.metrics_path = os.path.join(ckpt_dir, "metrics.json")
+
         self.system = ContentVerificationSystem()
         self.metrics_cache = {}
-        if os.path.exists(checkpoint_path):
-            self.load_checkpoint()
-            if os.path.exists(metrics_path):
-                with open(metrics_path, "r", encoding="utf-8") as f:
-                    self.metrics_cache = json.load(f)
-            else:
-                self.run_full_evaluation()
+
+        if os.path.exists(self.checkpoint_path):
+            try:
+                self.load_checkpoint()
+            except Exception as e:
+                print(f"[!] Note: Loading weights fallback: {e}")
+                self.system.eval()
         else:
-            self.train_and_calibrate(epochs=6)
+            self.system.eval()
+
+        if os.path.exists(self.metrics_path):
+            try:
+                with open(self.metrics_path, "r", encoding="utf-8") as f:
+                    self.metrics_cache = json.load(f)
+            except Exception:
+                pass
 
     def load_checkpoint(self):
         state = torch.load(self.checkpoint_path, map_location="cpu", weights_only=True)

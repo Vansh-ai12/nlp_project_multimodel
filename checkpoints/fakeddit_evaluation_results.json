@@ -1,0 +1,26 @@
+{
+  "dataset": "Fakeddit (Multimodal Reddit Benchmark)",
+  "sample_count": 120,
+  "overall_accuracy": 0.4917,
+  "precision": 0.6508,
+  "recall": 0.5125,
+  "f1_score": 0.5734,
+  "roc_auc": 0.4906,
+  "confusion_matrix": [
+    [
+      18,
+      22
+    ],
+    [
+      39,
+      41
+    ]
+  ],
+  "category_performance": {
+    "True / Pristine": 0.45,
+    "Satire / Parody": 0.45,
+    "Misleading Content": 0.55,
+    "Manipulated Content": 0.55,
+    "Completely Fabricated": 0.5
+  }
+}

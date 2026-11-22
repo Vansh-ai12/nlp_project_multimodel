@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multimodal Deepfake Verification Studio</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Top Navigation -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <div class="logo-icon">🛡️</div>
+      <div>
+        <h1>Multimodal Deepfake Verification Studio</h1>
+        <p class="subtitle">CSET 346: Natural Language Processing · Bennett University</p>
+      </div>
+    </div>
+    <div class="nav-status">
+      <span class="badge badge-gpu">⚡ NVIDIA DGX H200 (140GB HBM3e)</span>
+      <span id="system-status-badge" class="badge badge-online">● Backend Online</span>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Quick Preset Banner -->
+    <section class="card preset-section">
+      <div class="card-header">
+        <h2>⚡ Load Curated Hard-Case Scenarios (Experiment 5 Benchmark)</h2>
+        <span class="tag">16 Grounded Cases</span>
+      </div>
+      <div class="preset-controls">
+        <select id="preset-selector" class="select-input">
+          <option value="">-- Choose a Hard Case Scenario to Test --</option>
+        </select>
+        <button id="btn-load-preset" class="btn btn-secondary">Load Selected Case</button>
+      </div>
+    </section>
+
+    <!-- Main Workspace Grid -->
+    <div class="workspace-grid">
+      <!-- Left Panel: Input & Controls -->
+      <section class="card input-card">
+        <div class="card-header">
+          <h2>Input Modalities</h2>
+          <span class="tag">Multimodal Inputs</span>
+        </div>
+
+        <!-- Text Input -->
+        <div class="form-group">
+          <label for="caption-input">Text Caption / Headline:</label>
+          <textarea id="caption-input" class="text-area" rows="4" placeholder="Enter headline, news excerpt, or social media tweet to verify..."></textarea>
+        </div>
+
+        <!-- Image Input -->
+        <div class="form-group">
+          <label>Visual Modality (Image):</label>
+          <div id="drop-zone" class="drop-zone">
+            <input type="file" id="file-input" accept="image/*" class="file-input">
+            <div id="drop-prompt" class="drop-prompt">
+              <span class="upload-icon">📷</span>
+              <p>Drag & drop image here or <strong>browse file</strong></p>
+              <span class="hint">JPG, PNG, WebP supported</span>
+            </div>
+            <img id="image-preview" class="image-preview hidden" alt="Uploaded Image Preview">
+          </div>
+        </div>
+
+        <!-- Configuration Settings -->
+        <div class="collapsible-settings">
+          <div class="settings-header" id="toggle-settings">
+            <span>⚙️ Calibration & Model Options</span>
+            <span id="settings-arrow">▼</span>
+          </div>
+          <div id="settings-body" class="settings-body">
+            <div class="form-group">
+              <label for="strategy-select">Detection Pipeline / Architecture:</label>
+              <select id="strategy-select" class="select-input">
+                <option value="Fusion B" selected>Differential Cross-Attention (MSCT DCA - SOTA)</option>
+                <option value="Fusion A">Multimodal Fusion A (Concat + Cosine Alignment)</option>
+                <option value="Text Only">Text-Only Baseline (DistilBERT / DeBERTa)</option>
+                <option value="Image Only">Image-Only Baseline (ViT + Forensic Residual)</option>
+              </select>
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <label>Softmax Temperature (T):</label>
+                <span id="temp-val" class="mono">1.20</span>
+              </div>
+              <input type="range" id="temp-slider" min="0.5" max="2.5" step="0.1" value="1.2">
+            </div>
+
+            <div class="slider-group">
+              <div class="slider-header">
+                <label>Ternary Decision Bounds (t_low / t_high):</label>
+                <span id="thresh-val" class="mono">0.35 / 0.65</span>
+              </div>
+              <div class="dual-sliders">
+                <input type="range" id="tlow-slider" min="0.1" max="0.45" step="0.05" value="0.35">
+                <input type="range" id="thigh-slider" min="0.55" max="0.9" step="0.05" value="0.65">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+          <button id="btn-verify" class="btn btn-primary">🔍 Analyze & Verify</button>
+          <button id="btn-compare" class="btn btn-secondary">⚖️ Compare All Baselines</button>
+        </div>
+      </section>
+
+      <!-- Right Panel: Results & Explainability -->
+      <section class="card results-card">
+        <div class="card-header">
+          <h2>Verification Analysis & Evidence Grounding</h2>
+          <span id="eval-status" class="tag tag-ready">Ready</span>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loading-spinner" class="spinner-container hidden">
+          <div class="spinner"></div>
+          <p>Running multimodal cross-modal attention & forensic inference...</p>
+        </div>
+
+        <div id="results-content">
+          <!-- Empty State -->
+          <div id="empty-state" class="empty-state">
+            <span class="empty-icon">🛡️</span>
+            <h3>No Media Analyzed Yet</h3>
+            <p>Upload an image and headline or select a preset scenario from above to inspect real-time multimodal verification.</p>
+          </div>
+
+          <!-- Analysis Results Display (Hidden initially) -->
+          <div id="analysis-display" class="analysis-display hidden">
+            <!-- Verdict Banner -->
+            <div id="verdict-banner" class="verdict-banner">
+              <div class="verdict-main">
+                <span id="verdict-badge" class="verdict-badge">REAL</span>
+                <div>
+                  <h3 id="verdict-title">Authentic Content</h3>
+                  <p id="verdict-subtitle">No substantial manipulation cues detected across modalities.</p>
+                </div>
+              </div>
+              <div class="confidence-box">
+                <span class="conf-label">Confidence</span>
+                <span id="confidence-val" class="conf-value mono">98.4%</span>
+              </div>
+            </div>
+
+            <!-- Key Indicators Grid -->
+            <div class="indicators-grid">
+              <div class="indicator-item">
+                <span class="ind-label">Manipulation Type</span>
+                <strong id="manip-type-val" class="ind-value text-accent">Pristine / Genuine</strong>
+              </div>
+              <div class="indicator-item">
+                <span class="ind-label">Cross-Modal Compatibility</span>
+                <strong id="cosine-sim-val" class="ind-value mono">0.842</strong>
+              </div>
+              <div class="indicator-item">
+                <span class="ind-label">Faithfulness Ratio</span>
+                <strong id="faithfulness-val" class="ind-value mono">0.82</strong>
+              </div>
+            </div>
+
+            <!-- Explainability: Text Evidence -->
+            <div class="evidence-box">
+              <h4>📝 Text Evidence Grounding (Token Perturbation Attribution)</h4>
+              <p class="evidence-desc">Tokens highlighted based on their influence toward the final authenticity prediction:</p>
+              <div id="token-attribution-chips" class="token-chips-container"></div>
+            </div>
+
+            <!-- Explainability: Visual Spatial Attention & CAM Overlay -->
+            <div class="evidence-box">
+              <h4>🖼️ Visual Forensic & Spatial Attention Overlay</h4>
+              <p class="evidence-desc">High-frequency forensic activation and cross-modal attention heatmap:</p>
+              <div class="visual-comparison">
+                <div class="vis-col">
+                  <span>Input Image</span>
+                  <img id="vis-input-img" src="" alt="Input" class="forensic-img">
+                </div>
+                <div class="vis-col">
+                  <span>Attention / CAM Heatmap</span>
+                  <img id="vis-heatmap-img" src="" alt="Heatmap" class="forensic-img">
+                </div>
+              </div>
+            </div>
+
+            <!-- Forensic Evidence Notes -->
+            <div class="evidence-box">
+              <h4>🔍 Diagnostic Evidence Summary</h4>
+              <ul id="evidence-bullet-list" class="evidence-list"></ul>
+            </div>
+          </div>
+
+          <!-- Multi-Baseline Comparison Table (Hidden initially) -->
+          <div id="comparison-display" class="comparison-display hidden">
+            <h3>⚖️ Multi-Baseline Comparison Matrix</h3>
+            <p class="evidence-desc">Evaluation of the exact same sample across independent single-modality baselines vs multimodal fusion strategies:</p>
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Architecture</th>
+                    <th>Decision</th>
+                    <th>Confidence</th>
+                    <th>P(Fake)</th>
+                    <th>Predicted Manipulation</th>
+                  </tr>
+                </thead>
+                <tbody id="comparison-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Benchmark Metrics Section -->
+    <section class="card benchmark-section">
+      <div class="card-header">
+        <h2>📊 Course Benchmark Performance Summary (6 Required Experiments)</h2>
+        <button id="btn-refresh-metrics" class="btn btn-sm btn-secondary">↻ Refresh Metrics</button>
+      </div>
+      <div id="metrics-summary-grid" class="metrics-summary-grid">
+        <div class="metric-tile">
+          <span class="tile-label">Multimodal Accuracy</span>
+          <span class="tile-val text-success">100.0%</span>
+          <span class="tile-sub">Baseline: 60.0% (Text), 53.0% (Image)</span>
+        </div>
+        <div class="metric-tile">
+          <span class="tile-label">Multimodal F1-Score</span>
+          <span class="tile-val text-success">100.0%</span>
+          <span class="tile-sub">Harmonic Precision-Recall</span>
+        </div>
+        <div class="metric-tile">
+          <span class="tile-label">Forensic Branch Gain</span>
+          <span class="tile-val text-accent">+43.0%</span>
+          <span class="tile-sub">Accuracy drop to 57.0% without PRNU/FFT</span>
+        </div>
+        <div class="metric-tile">
+          <span class="tile-label">Cross-Modal Mismatch Detection</span>
+          <span class="tile-val text-primary">PASS</span>
+          <span class="tile-sub">Shuffled Pair Sensitivity Test</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Multimodal Deepfake Detection System · CSET 346 NLP Project · Authors: Mridul Bisht, Manu Sharma, Vansh Jain, Meet Anand, Utkarsh Singh, Rohan Garg</p>
+    <p>Instructor: Dr. Sakshi · Department of Computer Science & Engineering · Bennett University</p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

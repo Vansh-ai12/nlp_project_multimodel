@@ -23,13 +23,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-os.makedirs("static/samples", exist_ok=True)
-get_hard_cases_catalog("static/samples")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+SAMPLES_DIR = os.path.join(STATIC_DIR, "samples")
+os.makedirs(SAMPLES_DIR, exist_ok=True)
+get_hard_cases_catalog(SAMPLES_DIR)
 
 manager = ExperimentManager()
 explainer = ExplainabilityEngine(manager.system)
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 class VerificationPayload(BaseModel):
     text: str
@@ -47,7 +50,8 @@ class ComparePayload(BaseModel):
 
 @app.get("/")
 def serve_index():
-    return FileResponse("static/index.html")
+    index_path = os.path.join(STATIC_DIR, "index.html")
+    return FileResponse(index_path)
 
 @app.get("/api/status")
 def get_status():
