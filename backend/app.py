@@ -119,7 +119,7 @@ def compare_all_baselines(payload: ComparePayload):
     comparison = {}
     last_cos = 0.0
     for s in strats:
-        res = manager.system.verify(input_ids, attention_mask, img_tensor, strategy=s)
+        res = manager.system.verify(input_ids, attention_mask, img_tensor, strategy=s, raw_text=text)
         last_cos = res["cosine_similarity"]
         comparison[s] = {
             "decision": res["decision"],

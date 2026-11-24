@@ -15,7 +15,7 @@ class ExplainabilityEngine:
         if not words:
             return []
         input_ids, attention_mask = self.system.tokenizer.encode(text)
-        base_result = self.system.verify(input_ids, attention_mask, image_tensor, strategy=strategy)
+        base_result = self.system.verify(input_ids, attention_mask, image_tensor, strategy=strategy, raw_text=text)
         base_p_fake = base_result["p_fake"]
         attributions = []
         target_words = words[:12]
@@ -23,12 +23,12 @@ class ExplainabilityEngine:
             perturbed_words = target_words[:i] + target_words[i+1:]
             perturbed_text = " ".join(perturbed_words) if perturbed_words else "empty"
             p_ids, p_mask = self.system.tokenizer.encode(perturbed_text)
-            p_res = self.system.verify(p_ids, p_mask, image_tensor, strategy=strategy)
+            p_res = self.system.verify(p_ids, p_mask, image_tensor, strategy=strategy, raw_text=perturbed_text)
             delta = base_p_fake - p_res["p_fake"]
             attributions.append({
                 "word": word,
                 "importance": float(delta),
-                "influence": "fake-inducing" if delta > 0.01 else ("real-supporting" if delta < -0.01 else "neutral")
+                "influence": "fake-inducing" if delta > 0.005 else ("real-supporting" if delta < -0.005 else "neutral")
             })
         return attributions
 
@@ -84,7 +84,7 @@ class ExplainabilityEngine:
 
     def generate_verification_report(self, text, original_pil, image_tensor, strategy="Fusion A"):
         input_ids, attention_mask = self.system.tokenizer.encode(text)
-        res = self.system.verify(input_ids, attention_mask, image_tensor, strategy=strategy)
+        res = self.system.verify(input_ids, attention_mask, image_tensor, strategy=strategy, raw_text=text)
         attributions = self.compute_text_attribution(text, image_tensor, strategy=strategy)
         cam = self.compute_vit_attention_map(res["features"])
         heatmap_b64 = self.cam_to_heatmap_base64(cam, original_pil)
@@ -92,16 +92,21 @@ class ExplainabilityEngine:
         cosine = res["cosine_similarity"]
         mismatch_score = float(max(0.0, 1.0 - (cosine + 1.0) / 2.0))
         evidence = []
-        if mismatch_score > 0.45:
-            evidence.append(f"Cross-modal semantic mismatch detected: Text and image compatibility score is low ({cosine:.3f}).")
+        if cosine > 0.50:
+            evidence.append(f"Visual and textual semantics align with high compatibility score ({cosine:+.3f}). The visual subject corroborates headline semantics.")
+        elif cosine < 0.15:
+            evidence.append(f"Cross-modal semantic mismatch detected: Text and image compatibility score is low ({cosine:+.3f}). Modalities exhibit contradictory topics.")
         else:
-            evidence.append(f"Visual and textual semantics align within normal thresholds ({cosine:.3f}).")
+            evidence.append(f"Cross-modal compatibility is intermediate ({cosine:+.3f}). Subtle contextual verification required.")
         top_fake_words = [a["word"] for a in attributions if a["influence"] == "fake-inducing"]
+        top_real_words = [a["word"] for a in attributions if a["influence"] == "real-supporting"]
         if top_fake_words:
             evidence.append(f"Salient textual indicators flagged: '{', '.join(top_fake_words[:4])}'.")
+        elif top_real_words:
+            evidence.append(f"Corroborating textual tokens identified: '{', '.join(top_real_words[:4])}'.")
         high_heat_ratio = float(np.mean(cam > 0.6))
         if high_heat_ratio > 0.15:
-            evidence.append(f"Spatial visual anomaly: ViT attention rollout localized dense suspicion across {int(high_heat_ratio*100)}% of the frame.")
+            evidence.append(f"Spatial visual focus: ViT attention rollout localized dense subject attention across {int(high_heat_ratio*100)}% of the frame.")
         else:
             evidence.append("Visual attention distribution appears diffuse and consistent across the subject.")
         if res["decision"] == "FAKE":
