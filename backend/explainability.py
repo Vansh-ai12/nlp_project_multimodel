@@ -100,10 +100,15 @@ class ExplainabilityEngine:
         if top_fake_words:
             evidence.append(f"Salient textual indicators flagged: '{', '.join(top_fake_words[:4])}'.")
         high_heat_ratio = float(np.mean(cam > 0.6))
-        if high_heat_ratio > 0.15:
+        if res["decision"] == "FAKE" and (high_heat_ratio > 0.25 or res["manipulation_type"] == "Manipulated Image"):
             evidence.append(f"Spatial visual anomaly: ViT attention rollout localized dense suspicion across {int(high_heat_ratio*100)}% of the frame.")
+        elif res["decision"] == "REAL":
+            evidence.append("Visual attention distribution appears diffuse and consistent across the subject without forensic splicing anomalies.")
         else:
-            evidence.append("Visual attention distribution appears diffuse and consistent across the subject.")
+            if high_heat_ratio > 0.35:
+                evidence.append(f"Visual attention shows localized focus across {int(high_heat_ratio*100)}% of the frame.")
+            else:
+                evidence.append("Visual attention distribution appears diffuse and consistent across the subject.")
         if res["decision"] == "FAKE":
             explanation = f"Flagged as FAKE under {strategy} with {res['confidence']*100:.1f}% confidence. The multimodal classifier detected evidence indicative of '{res['manipulation_type']}'."
         elif res["decision"] == "REAL":
